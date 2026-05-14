@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "last_update": "2026-05-14 11:33:12",
+  "public_subsidiary": {},
+  "public_agency": {
+    "file_hash": ""
+  },
+  "affiliated_org": {
+    "notice_id": ""
+  },
+  "media": {
+    "file_hash": ""
+  },
+  "public_agency_year": "2026",
+  "affiliated_notice_title": "2026년 상반기 적용 공직유관단체 지정 고시",
+  "results": [
+    {
+      "task": "공공기관",
+      "status": "success",
+      "downloaded_file": "C:\\Users\\VV12UG\\OneDrive - ING\\Desktop\\PO_Crawler\\downloads\\public_agency\\일반현황_2026.csv",
+      "message": "public_agency_csv_download_success",
+      "source_url": "https://www.alio.go.kr/guide/publicAgencyStatus.do",
+      "updated_at": "2026-05-12 10:39:48"
+    },
+    {
+      "task": "공직유관단체",
+      "source_url": "https://www.mpm.go.kr/mpm/lawStat/infoLaw/lawAnwei/lawAnwei05/",
+      "status": "success",
+      "downloaded_file": "C:\\Users\\VV12UG\\OneDrive - ING\\Desktop\\PO_Crawler\\downloads\\affiliated_org\\2026년 상반기 적용 공직유관단체 지정 고시.xlsx",
+      "file_size": 66570,
+      "sha256": "de0e78533b55cd7cae005f3883614dbf381fbbcab413febbe46d780ebd54e81a",
+      "extracted_files": "[]",
+      "message": "affiliated_excel_direct_download_success / title=2026년 상반기 적용 공직유관단체 지정 고시",
+      "downloaded_at": "2026-05-12 10:40:06"
+    },
+    {
+      "task": "언론사",
+      "source_url": "https://pds.mcst.go.kr/pds/main/press/selectPressList.do",
+      "status": "failed",
+      "downloaded_file": "",
+      "file_size": "",
+      "sha256": "",
+      "extracted_files": "[]",
+      "message": "media_excel_download_not_found",
+      "downloaded_at": "2026-05-12 10:40:16"
+    }
+  ],
+  "success_count": 2,
+  "total_count": 3,
+  "last_status": "partial_or_failed"
+}

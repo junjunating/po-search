@@ -1,0 +1,9 @@
+flask
+pandas
+openpyxl
+xlrd
+requests
+beautifulsoup4
+lxml
+xlsxwriter
+playwright

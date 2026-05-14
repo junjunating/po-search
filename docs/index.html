@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    < 도구입니다.    <title>PO 통합 리스트</title>
+        원천 사이트의 게시 오류, 갱신 지연, 형식 변경, 중복 등록, 기관별 공시 오류 등으로 실제 현황과 차이가 발생할 수 있습니다.
+        대외 제출, 계약, 제재, 평가, 법적 판단 등 공식·확정적 용도로 사용하는 경우에는 원천 사이트의 최신 자료를 확인하시기 바랍니다.
+    </div>
+
+    <div class="footer">
+        제작: 정준혁
+    </div>
+
+    <script>
+        const PAGE_SIZE = 50;
+        const PAGE_BUTTON_COUNT = 6;
+
+        const searchInput = document.getElementById("searchInput");
+        const listBody = document.getElementById("listBody");
+        const notice = document.getElementById("notice");
+        const paginationTop = document.getElementById("paginationTop");
+        const paginationBottom = document.getElementById("paginationBottom");
+        const lastUpdate = document.getElementById("lastUpdate");
+        const totalCount = document.getElementById("totalCount");
+
+        let allRows = [];
+        let filteredRows = [];
+        let timer = null;
+        let currentPage = 1;
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function formatNumber(value) {
+            return Number(value).toLocaleString("ko-KR");
+        }
+
+        function normalize(value) {
+            return String(value || "").trim().toLowerCase();
+        }
+
+        function getFilteredRows() {
+            const q = normalize(searchInput.value);
+
+            if (!q) {
+                return allRows;
+            }
+
+            return allRows.filter(row => {
+                return normalize(row.name).includes(q)
+                    || normalize(row.category).includes(q);
+            });
+        }
+
+        function renderRows(page = 1) {
+            filteredRows = getFilteredRows();
+
+            const totalRows = filteredRows.length;
+            const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+
+            currentPage = Math.min(Math.max(page, 1), totalPages);
+
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const end = start + PAGE_SIZE;
+            const pageRows = filteredRows.slice(start, end);
+
+            listBody.innerHTML = "";
+
+            if (pageRows.length === 0) {
+                listBody.innerHTML = `
+                    <tr>
+                        <td colspan="3">검색 결과가 없습니다.</td>
+                    </tr>
+                `;
+                notice.textContent = "";
+                renderPagination(1, 1);
+                return;
+            }
+
+            const htmlRows = pageRows.map(row => `
+                <tr>
+                    <td>${escapeHtml(row.no)}</td>
+                    <td>${escapeHtml(row.name)}</td>
+                    <td class="category">${escapeHtml(row.category)}</td>
+                </tr>
+            `).join("");
+
+            listBody.innerHTML = htmlRows;
+
+            if (searchInput.value.trim()) {
+                notice.textContent = `검색 결과 ${formatNumber(totalRows)}개`;
+            } else {
+                notice.textContent = "";
+            }
+
+            renderPagination(currentPage, totalPages);
+        }
+
+        function makeButton(label, page, disabled = false, isCurrent = false) {
+            const btn = document.createElement("button");
+            btn.textContent = label;
+
+            if (disabled) {
+                btn.disabled = true;
+            }
+
+            if (isCurrent) {
+                btn.classList.add("current");
+            }
+
+            if (!disabled && !isCurrent) {
+                btn.addEventListener("click", () => {
+                    renderRows(page);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                });
+            }
+
+            return btn;
+        }
+
+        function renderPagination(page, totalPages) {
+            paginationTop.innerHTML = "";
+            paginationBottom.innerHTML = "";
+
+            const containers = [paginationTop, paginationBottom];
+
+            containers.forEach(container => {
+                if (totalPages <= 1) {
+                    return;
+                }
+
+                container.appendChild(makeButton("처음", 1, page === 1));
+                container.appendChild(makeButton("이전", page - 1, page === 1));
+
+                let start = Math.floor((page - 1) / PAGE_BUTTON_COUNT) * PAGE_BUTTON_COUNT + 1;
+                let end = Math.min(start + PAGE_BUTTON_COUNT - 1, totalPages);
+
+                if (start > 1) {
+                    const span = document.createElement("span");
+                    span.textContent = "...";
+                    span.style.marginRight = "5px";
+                    container.appendChild(span);
+                }
+
+                for (let p = start; p <= end; p++) {
+                    container.appendChild(makeButton(String(p), p, false, p === page));
+                }
+
+                if (end < totalPages) {
+                    const span = document.createElement("span");
+                    span.textContent = "...";
+                    span.style.marginRight = "5px";
+                    container.appendChild(span);
+                }
+
+                container.appendChild(makeButton("다음", page + 1, page === totalPages));
+                container.appendChild(makeButton("끝", totalPages, page === totalPages));
+            });
+        }
+
+        async function loadData() {
+            try {
+                const [rowsResponse, summaryResponse] = await Promise.all([
+                    fetch("./data/merged_list.json", { cache: "no-store" }),
+                    fetch("./data/summary.json", { cache: "no-store" }),
+                ]);
+
+                if (!rowsResponse.ok) {
+                    throw new Error("merged_list.json 로드 실패");
+                }
+
+                allRows = await rowsResponse.json();
+
+                if (summaryResponse.ok) {
+                    const summary = await summaryResponse.json();
+                    lastUpdate.textContent = summary.last_update || "-";
+                    totalCount.textContent = formatNumber(summary.total_count || allRows.length);
+                } else {
+                    lastUpdate.textContent = "-";
+                    totalCount.textContent = formatNumber(allRows.length);
+                }
+
+                notice.textContent = "";
+                renderRows(1);
+
+            } catch (error) {
+                console.error(error);
+                notice.textContent = "데이터를 불러오는 중 오류가 발생했습니다.";
+                listBody.innerHTML = `
+                    <tr>
+                        <td colspan="3">데이터를 불러오지 못했습니다.</td>
+                    </tr>
+                `;
+            }
+        }
+
+        searchInput.addEventListener("input", () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                renderRows(1);
+            }, 150);
+        });
+
+        loadData();
+    </script>
+</body>
+</html>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            font-family: "Malgun Gothic", "맑은 고딕", Arial, sans-serif;
+            margin: 30px;
+            color: #222;
+            background: #ffffff;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .meta {
+            margin-bottom: 12px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .summary {
+            margin-bottom: 20px;
+            font-size: 15px;
+            color: #333;
+        }
+
+        .search-box {
+            margin-bottom: 14px;
+        }
+
+        #searchInput {
+            width: 100%;
+            max-width: 520px;
+            padding: 10px 12px;
+            font-size: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        .notice {
+            margin: 10px 0;
+            color: #777;
+            font-size: 14px;
+        }
+
+        .table-tools {
+            margin: 12px 0;
+        }
+
+        .download-link {
+            display: inline-block;
+            margin-right: 10px;
+            color: #2563eb;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .download-link:hover {
+            text-decoration: underline;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 9px 10px;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f3f4f6;
+            text-align: left;
+        }
+
+        td {
+            vertical-align: top;
+        }
+
+        .category {
+            color: #374151;
+        }
+
+        .pagination {
+            margin: 18px 0;
+        }
+
+        .pagination button {
+            margin-right: 5px;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            background: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pagination button.current {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+
+        .pagination button:disabled {
+            color: #aaa;
+            cursor: not-allowed;
+            background: #f5f5f5;
+        }
+
+        .disclaimer {
+            margin-top: 40px;
+            padding: 16px 18px;
+            border-top: 1px solid #e5e7eb;
+            color: #666;
+            font-size: 13px;
+            line-height: 1.6;
+            background: #fafafa;
+            border-radius: 8px;
+            text-align: left;
+        }
+
+        .footer {
+            margin-top: 12px;
+            margin-bottom: 20px;
+            padding-left: 18px;
+            text-align: left;
+            color: #999;
+            font-size: 12px;
+            font-weight: 400;
+        }
+
+        @media (max-width: 700px) {
+            body {
+                margin: 16px;
+            }
+
+            th, td {
+                font-size: 13px;
+                padding: 8px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>PO 통합 리스트</h1>
+
+    <div class="meta">최근 업데이트: <span id="lastUpdate">불러오는 중...</span></div>
+
+    <div class="summary">
+        전체 <span id="totalCount">0</span>개
+    </div>
+
+    <div class="search-box">
+        <input
+            type="text"
+            id="searchInput"
+            placeholder="법인명 검색"
+            autocomplete="off"
+        >
+    </div>
+
+    <div id="notice" class="notice">데이터를 불러오는 중입니다...</div>
+
+    <div id="paginationTop" class="pagination"></div>
+
+    <div class="table-tools">
+        <a href="./download/merged_list.xlsx" class="download-link">Excel 다운로드</a>
+        <a href="./download/merged_list.csv" class="download-link">CSV 다운로드</a>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:80px;">번호</th>
+                <th>법인명</th>
+                <th style="width:300px;">분류</th>
+            </tr>
+        </thead>
+        <tbody id="listBody">
+            <tr>
+                <td colspan="3">데이터를 불러오는 중입니다.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div id="paginationBottom" class="pagination"></div>
+
+    <div class="disclaimer">

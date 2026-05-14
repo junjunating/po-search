@@ -1,0 +1,66 @@
+name: Update Static PO List
+
+on:
+  schedule:
+    # KST 03:17 = UTC 18:17 전날
+    - cron: '17 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        run: |
+          python -m playwright install --with-deps chromium
+
+      - name: Ensure required folders
+        run: |
+          mkdir -p downloads
+          mkdir -p downloads/media_company
+          mkdir -p output
+          mkdir -p logs
+          mkdir -p docs/data
+          mkdir -p docs/download
+
+      - name: Run update.py
+        run: |
+          python update.py
+
+      - name: Run subsidiary validation
+        run: |
+          python validate_subsidiary_reports.py
+
+      - name: Build static site data
+        run: |
+          python build_static_site.py
+
+      - name: Commit updated files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add docs/
+          git add downloads/merged_list.csv downloads/last_update.txt
+          git add output/public_agency_subsidiaries.xlsx output/subsidiary_validation_report.xlsx
+
+          git commit -m "Update PO static site data" || echo "No changes to commit"
+          git push
